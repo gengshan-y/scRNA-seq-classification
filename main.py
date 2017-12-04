@@ -54,28 +54,31 @@ data_batch_train, label_batch_train = create_dataloader(os.path.join(INPUT_PATH,
                                                train_name), BATCH_SIZE)
 data_batch_val, label_batch_val = create_dataloader(os.path.join(INPUT_PATH,\
                                                val_name), BATCH_SIZE)
-X = tf.placeholder(tf.float32, shape=(BATCH_SIZE, num_input))
-y_true = tf.placeholder(tf.int64, shape=(BATCH_SIZE))
+#X = tf.placeholder(tf.float32, shape=(BATCH_SIZE, num_input))
+#y_true = tf.placeholder(tf.int64, shape=(BATCH_SIZE))
 
 # Construct model
 def build_model(X,y_true,is_train=True,reuse=None,scope='model'):
     reg = 0.
-    dropout = 0.7
+    dropout = 0.
     #with tf.variable_scope(scope, 'my_model' ,[X,y_true], reuse=reuse):
     with tf.variable_scope(scope, reuse=reuse):
-        fc1 = tf.contrib.layers.fully_connected(X, 1024, weights_regularizer = layers.l2_regularizer(scale=reg))
+        fc1 = tf.contrib.layers.fully_connected(X, 2048, activation_fn=tf.nn.elu, \
+                             weights_regularizer = layers.l2_regularizer(scale=reg))
         fc1 = tf.layers.dropout(fc1, rate=dropout, training=is_train)
-        fc2 = tf.contrib.layers.fully_connected(fc1, 100, weights_regularizer = layers.l2_regularizer(scale=reg))
+        fc2 = tf.contrib.layers.fully_connected(fc1, 512, activation_fn=tf.nn.elu, \
+                             weights_regularizer = layers.l2_regularizer(scale=reg))
         fc2 = tf.layers.dropout(fc2, rate=dropout, training=is_train)
         #fc3 = tf.contrib.layers.fully_connected(fc2, 46)
         #fc1 = tf.contrib.layers.fully_connected(X, 1024, activation_fn=tf.nn.elu,normalizer_fn = slim.batch_norm)
         #fc2 = tf.contrib.layers.fully_connected(X, 100, activation_fn=tf.nn.elu,normalizer_fn = slim.batch_norm)
-        fc3 = tf.contrib.layers.fully_connected(fc2, 46, activation_fn=None, weights_regularizer = layers.l2_regularizer(scale=reg))
+        fc3 = tf.contrib.layers.fully_connected(fc2, 46, activation_fn=None, \
+                             weights_regularizer = layers.l2_regularizer(scale=reg))
         fc3 = tf.layers.dropout(fc3, rate=dropout, training=is_train)
         logits = tf.nn.softmax(fc3)
         y_pred = tf.argmax(logits,axis=-1)
-        sup_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=fc3, labels=y_true)
-        sup_loss = tf.reduce_mean(sup_loss)
+        sup_loss_all = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=fc3, labels=y_true)
+        sup_loss = tf.reduce_mean(sup_loss_all)
 
         # regularization
         reg_ws = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES, 'model')
@@ -93,14 +96,15 @@ def build_model(X,y_true,is_train=True,reuse=None,scope='model'):
         tf.summary.histogram('fc2', fc2, [sum_name])
         tf.summary.histogram('fc3', fc3, [sum_name])
         tf.summary.histogram('y_pred', y_pred, [sum_name])
+        tf.summary.histogram('sup_loss_all', sup_loss_all, [sum_name])
         tf.summary.scalar('loss', loss, [sum_name])
         tf.summary.scalar('sup_loss', sup_loss, [sum_name])
         tf.summary.scalar('reg_loss', reg_ws, [sum_name])
     return y_pred, loss, y_true
 
-y_pred,loss,_ =  build_model(X,y_true)
-#y_pred,loss,_ =  build_model(data_batch_train,label_batch_train)
-#y_pred_v,loss_v,y_true_v =  build_model(data_batch_val,label_batch_val,is_train=False,reuse=True)
+#y_pred,loss,_ =  build_model(X,y_true)
+y_pred,loss,y_true_t =  build_model(data_batch_train,label_batch_train)
+y_pred_v,loss_v,y_true_v =  build_model(data_batch_val,label_batch_val,is_train=False,reuse=True)
 
 optimizer = tf.train.RMSPropOptimizer(learning_rate).minimize(loss)
 # optimizer = tf.train.AdamOptimizer(learning_rate).minimize(loss)
@@ -113,8 +117,8 @@ config.gpu_options.visible_device_list='3'
 
 #summary_op = tf.summary.merge_all()
 summary_op = tf.summary.merge_all('train')
-# summary_op_v = tf.summary.merge_all('val')
-# train_saver = tf.train.Saver()
+summary_op_v = tf.summary.merge_all('val')
+train_saver = tf.train.Saver()
 
 with tf.Session(config=config) as sess:
     summary_writer = tf.summary.FileWriter(log_directory + '/' + 'log', sess.graph)
@@ -128,25 +132,28 @@ with tf.Session(config=config) as sess:
     # Training
     for i in range(0, num_steps):
         # Prepare Data
-        dbt, lbt = sess.run([data_batch_train, label_batch_train])
-        _, l, ypt = sess.run([optimizer, loss, y_pred],feed_dict={X:dbt,y_true:lbt})  # dont use eval()
+        #dbt, lbt = sess.run([data_batch_train, label_batch_train])
+        #_, l, ypt = sess.run([optimizer, loss, y_pred],feed_dict={X:dbt,y_true:lbt})  # dont use eval()
+        _, l, ypt,lbt = sess.run([optimizer, loss, y_pred,y_true_t])  # dont use eval()
         acc_t =  np.sum(ypt == lbt) / float(BATCH_SIZE)
         # Display logs per step
         l_vs = []; corr_num = 0
         if i % display_step == 0:
             for j in range(VAL_ITER):
-                dbv, lbv = sess.run([data_batch_val, label_batch_val])
-                l_v,ypv = sess.run([loss, y_pred],feed_dict={X:dbv,y_true:lbv})
+                # dbv, lbv = sess.run([data_batch_val, label_batch_val])
+                # l_v,ypv = sess.run([loss, y_pred],feed_dict={X:dbv,y_true:lbv})
+                l_v,ypv,lbv = sess.run([loss_v, y_pred_v,y_true_v])
                 corr_num += np.sum(ypv == lbv)
                 l_vs.append(l_v)
             l_val = np.mean(l_vs)
             acc_v = float(corr_num) / (BATCH_SIZE * VAL_ITER)
             print('Step %i: Minibatch loss/acc: %f/%f, VAL loss/acc: %f/%f '\
                               % (i, l,acc_t, l_val, acc_v))
-            summary_str = sess.run(summary_op, feed_dict={X:dbt,y_true:lbt})
+            #summary_str = sess.run(summary_op, feed_dict={X:dbt,y_true:lbt})
+            summary_str = sess.run(summary_op)
             summary_writer.add_summary(summary_str, global_step=i)
-            #summary_str = sess.run(summary_op_v)
-            #summary_writer.add_summary(summary_str, global_step=i)
+            summary_str = sess.run(summary_op_v)
+            summary_writer.add_summary(summary_str, global_step=i)
         if i and i % save_step == 0:
             train_saver.save(sess, log_directory + '/model', global_step=i)
     train_saver.save(sess, log_directory + '/model', global_step=i)
