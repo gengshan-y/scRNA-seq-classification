@@ -1,5 +1,10 @@
 # mlhw5
 
+## REQUIREMENTS
+- Tensorflow 1.0
+- sklearn
+- jupyter notebook
+
 ## PREPARE
 - Use data_explore.ipynb to explore the data and preform split.
 - Use build_data.ipynb to build training/val/test set.
