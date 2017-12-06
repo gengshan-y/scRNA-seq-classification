@@ -1,4 +1,4 @@
-# mlhw5
+# scRNA-seq-classification
 
 ## REQUIREMENTS
 - Tensorflow 1.0
@@ -11,16 +11,12 @@
 
 ## TRAIN
 - Use main.py to train the mlp model
-'''
-python main.py
-'''
 - Use train_svm.ipynb to train the SVM model
 - Use vis_result.ipynb to monitor network training results.
 
 ## EVALUATION
 - Use eval.py to evaluate the model
-'''
-python eval.py
-'''
 - I used voting among SVM, softmax MLP and sigmoid MLP to produce the final results, see build_eval.ipynb for details.
-## 
+
+## RESOURCES
+To accesss my data split, trained models and test predictions, see [this link](https://drive.google.com/file/d/1aTQIsOgEge06JVVUP6x3cXkXlE_L0tlq/view?usp=sharing).
