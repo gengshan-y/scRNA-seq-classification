@@ -59,7 +59,6 @@ conf_v = tf.confusion_matrix(y_true_v, y_pred_v, num_classes)
 optimizer = tf.train.RMSPropOptimizer(learning_rate).minimize(loss)
 # optimizer = tf.train.AdamOptimizer(learning_rate).minimize(loss)
 
-# Start Training
 # Start a new TF session
 config = tf.ConfigProto(allow_soft_placement=True)
 config.gpu_options.allow_growth=True
@@ -70,6 +69,7 @@ summary_op = tf.summary.merge_all('train')
 summary_op_v = tf.summary.merge_all('val')
 train_saver = tf.train.Saver(max_to_keep=30)
 
+# Start Training
 with tf.Session(config=config) as sess:
     summary_writer = tf.summary.FileWriter(args.log_directory, sess.graph)
     # Run the initializer
